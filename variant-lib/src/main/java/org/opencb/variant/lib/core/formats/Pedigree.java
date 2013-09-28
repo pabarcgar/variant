@@ -68,6 +68,34 @@ public class Pedigree {
         this.getFamilies().put(familyId, family);
     }
 
+    public List<Individual> getAffected(String family){
+        List<Individual> affected = new ArrayList<>();
+
+       Set<Individual> fam = this.families.get(family);
+
+        for(Individual i: fam){
+            if(i.getCondition() == Condition.AFFECTED){
+                affected.add(i);
+            }
+        }
+
+        return affected;
+    }
+
+    public List<Individual> getUnaffected(String family){
+        List<Individual> affected = new ArrayList<>();
+
+        Set<Individual> fam = this.families.get(family);
+
+        for(Individual i: fam){
+            if(i.getCondition() == Condition.UNAFFECTED){
+                affected.add(i);
+            }
+        }
+
+        return affected;
+    }
+
 
     @Override
     public String toString() {
@@ -86,7 +114,7 @@ public class Pedigree {
         return sb.toString();
     }
 
-    public List<Family> getFamiliesTDT() {
+    public List<Family> getFamilyTrios() {
 
         List<Family> families = new ArrayList<>();
         Individual ind;

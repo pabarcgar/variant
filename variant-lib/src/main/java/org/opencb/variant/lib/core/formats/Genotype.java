@@ -121,4 +121,8 @@ public class Genotype {
     public boolean isAllele2Ref(){
         return allele2 == 0;
     }
+
+    public boolean isMissing(){
+        return allele1 == null || allele2 == null;
+    }
 }
