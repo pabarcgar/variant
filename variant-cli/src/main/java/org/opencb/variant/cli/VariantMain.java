@@ -3,6 +3,7 @@ package org.opencb.variant.cli;
 import org.apache.commons.cli.*;
 import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfAnnotator;
 import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfControlAnnotator;
+import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfGeneNameAnnotator;
 import org.opencb.commons.bioformats.variant.vcf4.filters.*;
 import org.opencb.commons.bioformats.variant.vcf4.io.VariantDBWriter;
 import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantDataReader;
@@ -54,12 +55,15 @@ public class VariantMain {
         options.addOption(OptionFactory.createOption("effect", "Calculate Effect", false, false));
         options.addOption(OptionFactory.createOption("stats", "Calculate Stats", false, false));
         options.addOption(OptionFactory.createOption("index", "Generate Index", false, false));
+        // TODO: poner nombre al filtro
+        options.addOption(OptionFactory.createOption("antonio", "Filtro Antonio", false, false));
 
         options.addOption(OptionFactory.createOption("all", "Run all tools", false, false));
 
         // ANNOTS
         options.addOption(OptionFactory.createOption("annot-control-list", "Control filename list", false, true));
         options.addOption(OptionFactory.createOption("annot-control-prefix", "Control prefix", false, true));
+        options.addOption(OptionFactory.createOption("annot-gene-name", "Gene Names", false, false));
 
         // FILTERS
         options.addOption(OptionFactory.createOption("filter-region", "Filter Region (chr:start-end)", false, true));
@@ -113,6 +117,9 @@ public class VariantMain {
             if (commandLine.hasOption("index")) {
                 toolList.add(Tool.INDEX);
             }
+            if (commandLine.hasOption("antonio")) {
+            	toolList.add(Tool.ANTONIOFILTER);
+            }
         }
 
         System.out.println("toolList = " + toolList);
@@ -151,6 +158,10 @@ public class VariantMain {
                 case INDEX:
                     vrAux = new VariantIndexRunner(study, reader, null, writer, vr);
                     break;
+                case ANTONIOFILTER:
+                	// TODO: ped reader
+                	vrAux = new VariantMultiFilterRunner(study, reader, null, writer, vr);
+                	break;
             }
             vr = vrAux;
         }
@@ -329,6 +340,9 @@ public class VariantMain {
             Map<String, String> controlList = getControlList(commandLine.getOptionValue("annot-control-list"));
             annots.add(new VcfControlAnnotator(infoPrefix, controlList));
         }
+        if (commandLine.hasOption("annot-gene-name")) {
+        	annots.add(new VcfGeneNameAnnotator());
+        }
 
         return annots;
     }
@@ -392,5 +406,5 @@ public class VariantMain {
         }
     }
 
-    private enum Tool {FILTER, ANNOT, EFFECT, STATS, INDEX}
+    private enum Tool {FILTER, ANNOT, EFFECT, STATS, INDEX, ANTONIOFILTER}
 }
