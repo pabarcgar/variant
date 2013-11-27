@@ -72,6 +72,8 @@ public abstract class VariantRunner {
             study.setPedigree(pedReader.read());
             pedReader.close();
         }
+        study.addMetadata("variant_file_header", reader.getHeader());
+        study.setSamples(reader.getSampleNames());
 
         this.writerOpen();
         this.writerPre();
@@ -81,7 +83,7 @@ public abstract class VariantRunner {
         batch = reader.read(batchSize);
         while (!batch.isEmpty()) {
 
-            logger.debug("Batch: " + cont++);
+            System.out.println("Batch: " + cont++);
             batch = this.launch(batch);
             batch.clear();
             batch = reader.read(batchSize);
