@@ -59,8 +59,8 @@ public class VariantMain {
         options.addOption(OptionFactory.createOption("effect", "Calculate Effect", false, false));
         options.addOption(OptionFactory.createOption("stats", "Calculate Stats", false, false));
         options.addOption(OptionFactory.createOption("index", "Generate Index", false, false));
-        // TODO: poner nombre al filtro
-        options.addOption(OptionFactory.createOption("antonio", "Filtro Antonio", false, false));
+        // TODO: cambiar nombre al filtro y al parametro
+        options.addOption(OptionFactory.createOption("familiarGeneFilter", "Familiar Gene Filter", false, false));
 
         options.addOption(OptionFactory.createOption("all", "Run all tools", false, false));
 
@@ -129,8 +129,8 @@ public class VariantMain {
             if (commandLine.hasOption("index")) {
                 toolList.add(Tool.INDEX);
             }
-            if (commandLine.hasOption("antonio")) {
-            	toolList.add(Tool.ANTONIOFILTER);
+            if (commandLine.hasOption("familiarGeneFilter")) {
+            	toolList.add(Tool.FAMILIARGENEFILTER);
             }
         }
 
@@ -175,9 +175,8 @@ public class VariantMain {
                 case INDEX:
                     vrAux = new VariantIndexRunner(study, reader, null, writer, vr);
                     break;
-                case ANTONIOFILTER:
-                	// TODO: ped reader
-                	vrAux = new VariantMultiFilterRunner(study, reader, null, writer, vr);
+                case FAMILIARGENEFILTER:
+                	vrAux = new VariantFamiliarGeneFilterRunner(study, reader, null, writer, vr);
                 	break;
             }
             vr = vrAux;
@@ -274,5 +273,5 @@ public class VariantMain {
         }
     }
 
-    private enum Tool {FILTER, ANNOT, EFFECT, STATS, INDEX, ANTONIOFILTER}
+    private enum Tool {FILTER, ANNOT, EFFECT, STATS, INDEX, FAMILIARGENEFILTER}
 }
