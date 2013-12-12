@@ -1,17 +1,18 @@
 package org.opencb.variant.lib.runners;
 
-import org.opencb.commons.bioformats.commons.DataWriter;
+import org.opencb.commons.bioformats.pedigree.io.readers.PedDataReader;
+import org.opencb.commons.bioformats.variant.VariantStudy;
 import org.opencb.commons.bioformats.variant.vcf4.VcfRecord;
 import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantDataReader;
+import org.opencb.commons.io.DataWriter;
+import org.opencb.commons.run.Runner;
 import org.slf4j.LoggerFactory;
-//import org.slf4j.Logger;
-//import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
 
-import org.opencb.commons.bioformats.pedigree.io.readers.PedDataReader;
-import org.opencb.commons.bioformats.variant.VariantStudy;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
 
 /**
  * Created with IntelliJ IDEA.
@@ -20,17 +21,15 @@ import org.opencb.commons.bioformats.variant.VariantStudy;
  * Time: 11:50 AM
  * To change this template use File | Settings | File Templates.
  */
-public abstract class VariantRunner {
+public abstract class VariantRunner extends Runner<VariantDataReader, DataWriter, VcfRecord> {
 
     protected org.slf4j.Logger logger = LoggerFactory.getLogger(this.getClass());
-    protected VariantDataReader reader;
     protected PedDataReader pedReader;
-    protected DataWriter writer;
-    protected VariantRunner prev;
     protected VariantStudy study;
     protected int batchSize = 1000;
 
     public VariantRunner(VariantStudy study, VariantDataReader reader, PedDataReader pedReader, DataWriter writer) {
+        super(reader, writer);
         this.study = study;
         this.reader = reader;
         this.pedReader = pedReader;
@@ -48,16 +47,6 @@ public abstract class VariantRunner {
 
     public void setStudy(VariantStudy study) {
         this.study = study;
-    }
-
-    public abstract List<VcfRecord> apply(List<VcfRecord> batch) throws IOException;
-
-    public void pre() throws IOException {
-        logger.debug(this.getClass().getSimpleName() + " Empty pre");
-    }
-
-    public void post() throws IOException {
-        logger.debug(this.getClass().getSimpleName() + " Empty post");
     }
 
     public void run() throws IOException {
@@ -99,62 +88,4 @@ public abstract class VariantRunner {
         this.writerClose();
 
     }
-
-    public List<VcfRecord> launch(List<VcfRecord> batch) throws IOException {
-
-        if (prev != null) {
-            batch = prev.launch(batch);
-        }
-
-        batch = this.apply(batch);
-        return batch;
-    }
-
-    public void launchPre() throws IOException {
-        if (prev != null) {
-            prev.launchPre();
-        }
-        this.pre();
-    }
-
-    public void launchPost() throws IOException {
-        if (prev != null) {
-            prev.launchPost();
-        }
-        this.post();
-    }
-
-    public void writerPre() {
-        if (prev != null) {
-            prev.writerPre();
-        }
-        if (writer != null)
-            writer.pre();
-    }
-
-    public void writerOpen() {
-        if (prev != null) {
-            prev.writerOpen();
-        }
-        if (writer != null)
-            writer.open();
-    }
-
-    public void writerPost() {
-        if (prev != null) {
-            prev.writerPost();
-        }
-        if (writer != null)
-            writer.post();
-    }
-
-    public void writerClose() {
-        if (prev != null) {
-            prev.writerClose();
-        }
-        if (writer != null)
-            writer.close();
-    }
-
-
 }

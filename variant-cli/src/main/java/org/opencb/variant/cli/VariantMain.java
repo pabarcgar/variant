@@ -14,6 +14,7 @@ import org.opencb.commons.bioformats.variant.vcf4.io.VariantDBWriter;
 import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantDataReader;
 import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantVcfDataReader;
 import org.opencb.commons.bioformats.variant.vcf4.io.writers.index.VariantVcfDataWriter;
+//import org.opencb.opencga.storage.variant.VariantVcfSqliteWriter;
 import org.opencb.opencga.storage.variant.VariantVcfSqliteWriter;
 import org.opencb.variant.lib.runners.*;
 
@@ -152,6 +153,7 @@ public class VariantMain {
         List<VcfAnnotator> annots = parseAnnotations(commandLine);
 
         for (Tool t : toolList) {
+            System.out.println("t = " + t);
             switch (t) {
                 case FILTER:
                     if (toolList.size() == 1) {
@@ -221,7 +223,7 @@ public class VariantMain {
             filters.add(new VcfRegionFilter(commandLine.getOptionValue("filter-region"), Integer.MAX_VALUE));
         }
 
-        if (commandLine.hasOption("filter-SNP")) {
+        if (commandLine.hasOption("filter-snp")) {
             filters.add(new VcfSnpFilter());
         }
 
