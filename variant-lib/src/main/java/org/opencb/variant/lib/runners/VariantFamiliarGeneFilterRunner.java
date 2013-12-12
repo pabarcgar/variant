@@ -111,7 +111,7 @@ public class VariantFamiliarGeneFilterRunner extends VariantRunner {
 		List<VcfRecord> variantsFromGene;
 		for (String geneName : geneNames) {
 			variantsFromGene = geneMap.get(geneName);
-			if (variantsFromGene == null) {git
+			if (variantsFromGene == null) {
 				// the gene is not in the map, create a new variant list
 				variantsFromGene = new LinkedList<VcfRecord> ();
 			}
