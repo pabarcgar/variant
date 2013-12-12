@@ -1,6 +1,8 @@
 package org.opencb.variant.cli;
 
 import org.apache.commons.cli.*;
+import org.opencb.commons.bioformats.pedigree.io.readers.PedDataReader;
+import org.opencb.commons.bioformats.pedigree.io.readers.PedFileDataReader;
 import org.opencb.commons.bioformats.variant.VariantStudy;
 import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfAnnotator;
 import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfControlAnnotator;
@@ -98,6 +100,11 @@ public class VariantMain {
 
         inputFile = commandLine.getOptionValue("vcf-file");
         outputFile = commandLine.getOptionValue("outdir") + "/" + outputFile;
+        
+        String pedFile = null;
+        if (commandLine.hasOption("ped-file")) {
+        	pedFile = commandLine.getOptionValue("ped-file");
+        }
 
         if (commandLine.hasOption("all")) {
             toolList.add(Tool.FILTER);
@@ -131,9 +138,14 @@ public class VariantMain {
 
         VariantRunner vr = null;
         VariantRunner vrAux = null;
-        String pedFile = null;
 
         VariantStudy study = new VariantStudy("study1", "s1", "Study 1", Arrays.asList("Alejandro", "Cristina"), Arrays.asList(inputFile, pedFile));
+        // read pedigree
+        PedDataReader pedReader = new PedFileDataReader(pedFile);
+        if (pedReader.open()) {
+            study.setPedigree(pedReader.read());
+            pedReader.close();
+        }
         VariantDataReader reader = new VariantVcfDataReader(inputFile);
         VariantDBWriter writer = new VariantVcfSqliteWriter(outputFile);
         List<VcfFilter> filters = parseFilters(commandLine);
