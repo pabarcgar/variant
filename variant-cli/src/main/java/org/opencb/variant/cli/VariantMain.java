@@ -14,7 +14,6 @@ import org.opencb.commons.bioformats.variant.vcf4.io.VariantDBWriter;
 import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantDataReader;
 import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantVcfDataReader;
 import org.opencb.commons.bioformats.variant.vcf4.io.writers.index.VariantVcfDataWriter;
-//import org.opencb.opencga.storage.variant.VariantVcfSqliteWriter;
 import org.opencb.opencga.storage.variant.VariantVcfSqliteWriter;
 import org.opencb.variant.lib.runners.*;
 
@@ -142,10 +141,12 @@ public class VariantMain {
 
         VariantStudy study = new VariantStudy("study1", "s1", "Study 1", Arrays.asList("Alejandro", "Cristina"), Arrays.asList(inputFile, pedFile));
         // read pedigree
-        PedDataReader pedReader = new PedFileDataReader(pedFile);
-        if (pedReader.open()) {
-            study.setPedigree(pedReader.read());
-            pedReader.close();
+        if (pedFile != null) {
+            PedDataReader pedReader = new PedFileDataReader(pedFile);
+            if (pedReader.open()) {
+                study.setPedigree(pedReader.read());
+                pedReader.close();
+            }
         }
         VariantDataReader reader = new VariantVcfDataReader(inputFile);
         VariantDBWriter writer = new VariantVcfSqliteWriter(outputFile);
