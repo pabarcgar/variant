@@ -10,6 +10,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.opencb.commons.bioformats.feature.AllelesCode;
 import org.opencb.commons.bioformats.feature.Genotype;
@@ -19,9 +20,11 @@ import org.opencb.commons.bioformats.pedigree.Pedigree;
 import org.opencb.commons.bioformats.pedigree.io.readers.PedDataReader;
 import org.opencb.commons.bioformats.variant.VariantStudy;
 import org.opencb.commons.bioformats.variant.vcf4.VcfRecord;
+import org.opencb.commons.bioformats.variant.vcf4.VcfRecordCoordinateComparator;
 import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfGeneNameAnnotator;
 import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantDataReader;
 import org.opencb.commons.bioformats.variant.vcf4.io.writers.index.VariantDataWriter;
+
 
 public class VariantFamiliarGeneFilterRunner extends VariantRunner {
 	
@@ -57,7 +60,9 @@ public class VariantFamiliarGeneFilterRunner extends VariantRunner {
 	@Override
 	public List<VcfRecord> apply(List<VcfRecord> batch) throws IOException {
 		List<VcfRecord> filteredBatch = new LinkedList<VcfRecord>();
-
+        // TODO: cambiar nombre
+        Set<VcfRecord> preOutputSet = new TreeSet<VcfRecord>(new VcfRecordCoordinateComparator());
+        List<VcfRecord> variantsToRemove = null;
 		List<String> finishedGenes;
 		List<String> geneNames;
 		for (VcfRecord variant : batch) {
@@ -66,13 +71,37 @@ public class VariantFamiliarGeneFilterRunner extends VariantRunner {
 			finishedGenes = this.finishedGenes(geneNames, geneMap.keySet());
 			if (finishedGenes != null) {
 				// filter the variants from finished genes, adding those who pass the filters to the output batch
-                filteredBatch.addAll(this.applyMultiFilter(finishedGenes, geneMap));
+                preOutputSet.addAll(this.applyMultiFilter(finishedGenes, geneMap));
 				// remove the finished genes from the gene map
 				for (String finishedGene : finishedGenes) {
 					geneMap.remove(finishedGene);
 				}
+                // add to the output batch (in coordinate order) the variants that are not in "not finished" genes
+                boolean found = false;
+                for (VcfRecord record : preOutputSet) {
+                    for (List<VcfRecord> geneVariants: geneMap.values()) {
+                        if (geneVariants.contains(record)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        filteredBatch.add(record);
+                        if (variantsToRemove == null) {
+                            variantsToRemove = new LinkedList<VcfRecord>();
+                        }
+                        variantsToRemove.add(record);
+                    } else {
+                        break;
+                    }
+                }
+                // remove the processed variants from the set
+                if (variantsToRemove != null) {
+                    preOutputSet.removeAll(variantsToRemove);
+                    variantsToRemove = null;
+                }
 			}
-			
+
 			// if the variant has one of more gene names, add them to the gene map
 			if (geneNames != null) {
 				this.addVariantAndGenes(variant, geneNames);
@@ -84,9 +113,10 @@ public class VariantFamiliarGeneFilterRunner extends VariantRunner {
         if (writer != null) {
             ((VariantDataWriter) writer).writeBatch(filteredBatch);
         }
-		
+
 		return filteredBatch;
 	}
+
 
     public void post() throws IOException {
         // process the last finished genes
