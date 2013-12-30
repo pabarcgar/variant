@@ -107,7 +107,6 @@ public class VariantFamiliarGeneFilterRunner extends VariantRunner {
 				this.addVariantAndGenes(variant, geneNames);
 			}
 		}
-		System.out.println("Total variantes: " + batch.size() + "; Pasan el filtro: " + filteredBatch.size());
         // write the filtered batch
         batch.clear();
         if (writer != null) {
@@ -125,7 +124,6 @@ public class VariantFamiliarGeneFilterRunner extends VariantRunner {
         lastFinishedGenes.addAll(geneMap.keySet());
         lastGenesFilteredRecords.addAll(this.applyMultiFilter(lastFinishedGenes, geneMap));
         geneMap.clear();
-        System.out.println("Pasan el filtro post: " + lastGenesFilteredRecords.size());
         // write the last genes filtered records
         if (writer != null) {
             ((VariantDataWriter) writer).writeBatch(lastGenesFilteredRecords);
