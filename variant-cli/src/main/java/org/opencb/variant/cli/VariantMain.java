@@ -179,7 +179,7 @@ public class VariantMain {
                     vrAux = new VariantIndexRunner(study, reader, null, writer, vr);
                     break;
                 case FAMILIARGENEFILTER:
-                	vrAux = new VariantFamiliarGeneFilterRunner(study, reader, null, new VariantVcfDataWriter(outputFile), vr);
+                	vrAux = new VariantGeneFilterRunner(study, null, reader, null, new VariantVcfDataWriter(outputFile), vr);
                 	break;
             }
             vr = vrAux;
