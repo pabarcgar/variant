@@ -38,7 +38,7 @@ public class VcfGeneFilterTest {
 //        VariantFilterRunner vr = new VariantFilterRunner(fileIn, fileOut);
 //        List<VcfFilter> list = new ArrayList<>();
 //
-//        list.add(new VcfGeneFilter(geneList));
+//        list.add(new VariantGeneLevelFilter(geneList));
 //
 //        vr.filters(list);
 //

@@ -1,28 +1,30 @@
 package org.opencb.variant.cli;
 
 import org.apache.commons.cli.*;
-import org.opencb.commons.bioformats.pedigree.io.readers.PedDataReader;
-import org.opencb.commons.bioformats.pedigree.io.readers.PedFileDataReader;
+import org.opencb.commons.bioformats.pedigree.Pedigree;
+import org.opencb.commons.bioformats.pedigree.io.readers.PedigreePedReader;
+import org.opencb.commons.bioformats.pedigree.io.readers.PedigreeReader;
+import org.opencb.commons.bioformats.variant.Variant;
 import org.opencb.commons.bioformats.variant.VariantStudy;
-import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfAnnotator;
-import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfControlAnnotator;
-import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfEVSControlAnnotator;
-import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfGeneNameAnnotator;
-import org.opencb.commons.bioformats.variant.vcf4.annotators.VcfSNPAnnotator;
-import org.opencb.commons.bioformats.variant.vcf4.filters.*;
-import org.opencb.commons.bioformats.variant.vcf4.io.VariantDBWriter;
-import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantDataReader;
-import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantVcfDataReader;
-import org.opencb.commons.bioformats.variant.vcf4.io.writers.index.VariantVcfDataWriter;
-import org.opencb.opencga.storage.variant.VariantVcfSqliteWriter;
-import org.opencb.variant.lib.runners.*;
+import org.opencb.commons.bioformats.variant.annotators.*;
+import org.opencb.commons.bioformats.variant.filters.*;
+import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantReader;
+import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantVcfByGeneReader;
+import org.opencb.commons.bioformats.variant.vcf4.io.readers.VariantVcfReader;
+import org.opencb.commons.bioformats.variant.vcf4.io.writers.VariantVcfDataWriter;
+import org.opencb.commons.bioformats.variant.vcf4.io.writers.VariantWriter;
+import org.opencb.commons.containers.list.SortedList;
+import org.opencb.commons.run.Task;
+import org.opencb.variant.lib.runners.VariantRunner;
+import org.opencb.variant.lib.runners.tasks.*;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
-import java.util.logging.Logger;
+
+//import org.opencb.opencga.storage.variant.VariantVcfSqliteWriter;
 
 /**
  * Created with IntelliJ IDEA.
@@ -37,7 +39,6 @@ public class VariantMain {
     private static CommandLine commandLine;
     private static CommandLineParser parser;
     private static HelpFormatter help;
-    private Logger logger;
 
     static {
         parser = new PosixParser();
@@ -59,8 +60,8 @@ public class VariantMain {
         options.addOption(OptionFactory.createOption("effect", "Calculate Effect", false, false));
         options.addOption(OptionFactory.createOption("stats", "Calculate Stats", false, false));
         options.addOption(OptionFactory.createOption("index", "Generate Index", false, false));
-        // TODO: cambiar nombre al filtro y al parametro
-        options.addOption(OptionFactory.createOption("familiarGeneFilter", "Familiar Gene Filter", false, false));
+        // TODO: change the option name to 'compoundFilter'?
+        options.addOption(OptionFactory.createOption("geneLevelFilter", "Filter vcf (Gene Level)", false, false));
 
         options.addOption(OptionFactory.createOption("all", "Run all tools", false, false));
 
@@ -74,12 +75,13 @@ public class VariantMain {
 
         // FILTERS
         options.addOption(OptionFactory.createOption("filter-region", "Filter Region (chr:start-end)", false, true));
+        options.addOption(OptionFactory.createOption("filter-bed", "Filter Bed ", false, true));
         options.addOption(OptionFactory.createOption("filter-snp", "Filter SNP", false, false));
         options.addOption(OptionFactory.createOption("filter-ct", "Filter Consequence Type", false, true));
         options.addOption(OptionFactory.createOption("filter-gene", "Filter Gene (BRCA2,PPL)", false, true));
         options.addOption(OptionFactory.createOption("filter-gene-file", "Filter Gene gene_list.txt", false, true));
-
-
+        // GENE LEVEL FILTERS
+        options.addOption(OptionFactory.createOption("filter-comp-het", "Compound heterozygosity gene-level filter", false, false));
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -129,113 +131,138 @@ public class VariantMain {
             if (commandLine.hasOption("index")) {
                 toolList.add(Tool.INDEX);
             }
-            if (commandLine.hasOption("familiarGeneFilter")) {
-            	toolList.add(Tool.FAMILIARGENEFILTER);
+            if (commandLine.hasOption("geneLevelFilter")) {
+            	toolList.add(Tool.GENE_LEVEL_FILTER);
             }
         }
 
         System.out.println("toolList = " + toolList);
 
-        VariantRunner vr = null;
-        VariantRunner vrAux = null;
+        VariantRunner vr;
+
+
+        List<Task<Variant>> taskList = new SortedList<>();
+        List<VariantWriter> writers = new ArrayList<>();
 
         VariantStudy study = new VariantStudy("study1", "s1", "Study 1", Arrays.asList("Alejandro", "Cristina"), Arrays.asList(inputFile, pedFile));
         // read pedigree
         if (pedFile != null) {
-            PedDataReader pedReader = new PedFileDataReader(pedFile);
+            PedigreeReader pedReader = new PedigreePedReader(pedFile);
             if (pedReader.open()) {
                 study.setPedigree(pedReader.read());
                 pedReader.close();
             }
         }
-        VariantDataReader reader = new VariantVcfDataReader(inputFile);
-        VariantDBWriter writer = new VariantVcfSqliteWriter(outputFile);
-        List<VcfFilter> filters = parseFilters(commandLine);
-        List<VcfAnnotator> annots = parseAnnotations(commandLine);
+        VariantReader reader = new VariantVcfReader(inputFile);
+        List<VariantFilter> filters = parseFilters(commandLine);
+        List<VariantAnnotator> annots = parseAnnotations(commandLine);
+        List<VariantGeneLevelFilter> geneLevelFilters = parseGeneLevelFilters(commandLine, study.getPedigree());
 
         for (Tool t : toolList) {
             System.out.println("t = " + t);
             switch (t) {
                 case FILTER:
-                    if (toolList.size() == 1) {
-                        vrAux = new VariantFilterRunner(study, reader, null, new VariantVcfDataWriter(outputFile), filters, vr);
-                    } else {
-                        vrAux = new VariantFilterRunner(study, reader, null, null, filters, vr);
-                    }
+//                    if (toolList.size() == 1) {
+//                        vrAux = new VariantFilterRunner(study, reader, null, new VariantVcfDataWriter(outputFile), filters, vr);
+//                    } else {
+//                        vrAux = new VariantFilterRunner(study, reader, null, null, filters, vr);
+//                    }
+                    taskList.add(new VariantFilterTask(filters, Integer.MAX_VALUE));
+
                     break;
                 case ANNOT:
-                    if (toolList.size() == 1) {
-                        vrAux = new VariantAnnotRunner(study, reader, null, new VariantVcfDataWriter(outputFile), annots, vr);
-                    } else
-                        vrAux = new VariantAnnotRunner(study, reader, null, null, annots, vr);
+//                    if (toolList.size() == 1) {
+//                        vrAux = new VariantAnnotRunner(study, reader, null, new VariantVcfDataWriter(outputFile), annots, vr);
+//                    } else
+//                        vrAux = new VariantAnnotRunner(study, reader, null, null, annots, vr);
+                    taskList.add(new VariantAnnotTask(annots));
                     break;
                 case EFFECT:
-                    vrAux = new VariantEffectRunner(study, reader, null, writer, vr);
+                    taskList.add(new VariantEffectTask());
                     break;
                 case STATS:
-                    vrAux = new VariantStatsRunner(study, reader, null, writer, vr);
+                    taskList.add(new VariantStatsTask(reader, study));
                     break;
-                case INDEX:
-                    vrAux = new VariantIndexRunner(study, reader, null, writer, vr);
-                    break;
-                case FAMILIARGENEFILTER:
-                	vrAux = new VariantGeneFilterRunner(study, null, reader, null, new VariantVcfDataWriter(outputFile), vr);
+                case GENE_LEVEL_FILTER:
+                    VariantReader inputVcfReader = new VariantVcfByGeneReader(inputFile, false);
+                    VariantVcfDataWriter outputVcfWriter = new VariantVcfDataWriter(inputVcfReader, outputFile);
+                    taskList.add(new VariantGeneLevelFilterTask(study, geneLevelFilters, outputVcfWriter));
                 	break;
+
             }
-            vr = vrAux;
+        }
+
+        for (Task<Variant> t : taskList) {
+            System.out.println(t.getClass().getCanonicalName());
         }
 
         System.out.println("START");
+
+        vr = new VariantRunner(study, reader, null, writers, taskList);
+
         vr.run();
         System.out.println("END");
 
     }
 
-    private static List<VcfAnnotator> parseAnnotations(CommandLine commandLine) {
-        List<VcfAnnotator> annots = new ArrayList<>();
+    private static List<VariantAnnotator> parseAnnotations(CommandLine commandLine) {
+        List<VariantAnnotator> annots = new ArrayList<>();
         if (commandLine.hasOption("annot-control-list")) {
             String infoPrefix = commandLine.hasOption("annot-control-prefix") ? commandLine.getOptionValue("annot-control-prefix") : "CONTROL";
             Map<String, String> controlList = getControlList(commandLine.getOptionValue("annot-control-list"));
-            annots.add(new VcfControlAnnotator(infoPrefix, controlList));
+            annots.add(new VariantControlAnnotator(infoPrefix, controlList));
         } else if (commandLine.hasOption("annot-control-file")) {
             String infoPrefix = commandLine.hasOption("annot-control-prefix") ? commandLine.getOptionValue("annot-control-prefix") : "CONTROL";
-            annots.add(new VcfControlAnnotator(infoPrefix, commandLine.getOptionValue("annot-control-file")));
+            annots.add(new VariantControlAnnotator(infoPrefix, commandLine.getOptionValue("annot-control-file")));
         }
 
         if (commandLine.hasOption("annot-control-evs")) {
             String infoPrefix = commandLine.hasOption("annot-control-prefix") ? commandLine.getOptionValue("annot-control-prefix") : "EVS";
-            annots.add(new VcfEVSControlAnnotator(infoPrefix, commandLine.getOptionValue("annot-control-evs")));
+            annots.add(new VariantEVSControlAnnotator(infoPrefix, commandLine.getOptionValue("annot-control-evs")));
         }
 
         if (commandLine.hasOption("annot-snp")) {
-            annots.add(new VcfSNPAnnotator());
+            annots.add(new VariantSNPAnnotator());
         }
         if (commandLine.hasOption("annot-gene-name")) {
-        	annots.add(new VcfGeneNameAnnotator());
+        	annots.add(new VariantGeneNameAnnotator());
         }
 
         return annots;
     }
 
-    private static List<VcfFilter> parseFilters(CommandLine commandLine) {
-        List<VcfFilter> filters = new ArrayList<>();
+    private static List<VariantFilter> parseFilters(CommandLine commandLine) {
+        List<VariantFilter> filters = new ArrayList<>();
 
         if (commandLine.hasOption("filter-region")) {
-            filters.add(new VcfRegionFilter(commandLine.getOptionValue("filter-region"), Integer.MAX_VALUE));
+            filters.add(new VariantRegionFilter(commandLine.getOptionValue("filter-region"), Integer.MAX_VALUE));
+        }
+
+        if (commandLine.hasOption("filter-bed")) {
+            filters.add(new VariantBedFilter(commandLine.getOptionValue("filter-bed"), Integer.MAX_VALUE));
         }
 
         if (commandLine.hasOption("filter-snp")) {
-            filters.add(new VcfSnpFilter());
+            filters.add(new VariantSnpFilter());
         }
 
         if (commandLine.hasOption("filter-ct")) {
-            filters.add(new VcfConsequenceTypeFilter(commandLine.getOptionValue("filter-ct")));
+            filters.add(new VariantConsequenceTypeFilter(commandLine.getOptionValue("filter-ct")));
         }
 
         if (commandLine.hasOption("filter-gene")) {
-            filters.add(new VcfGeneFilter(commandLine.getOptionValue("filter-gene")));
+            filters.add(new VariantGeneFilter(commandLine.getOptionValue("filter-gene")));
         } else if (commandLine.hasOption("filter-gene-file")) {
-            filters.add(new VcfGeneFilter(new File(commandLine.getOptionValue("filter-gene-file"))));
+            filters.add(new VariantGeneFilter(new File(commandLine.getOptionValue("filter-gene-file"))));
+        }
+        return filters;
+    }
+
+    private static List<VariantGeneLevelFilter> parseGeneLevelFilters(CommandLine commandLine, Pedigree pedigree) {
+        List<VariantGeneLevelFilter> filters = new ArrayList<>();
+        // parse filters from command line
+        if (commandLine.hasOption("filter-comp-het")) {
+            filters.add(new VariantCompoundHeterozygosityFilter(pedigree));
         }
         return filters;
     }
@@ -276,5 +303,5 @@ public class VariantMain {
         }
     }
 
-    private enum Tool {FILTER, ANNOT, EFFECT, STATS, INDEX, FAMILIARGENEFILTER}
+    private enum Tool {FILTER, ANNOT, EFFECT, STATS, INDEX, GENE_LEVEL_FILTER}
 }
